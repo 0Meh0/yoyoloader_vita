@@ -85,6 +85,7 @@ extern unsigned _newlib_heap_size;
 int disableObjectsArray = 0;
 int uncached_mem = 0;
 int double_buffering = 0;
+int disable_orientation = 0;
 int forceGL1 = 0;
 int forceSplashSkip = 0;
 int platTarget = 0;
@@ -172,6 +173,7 @@ void loadConfig(const char *game) {
 			else if (strcmp("disableAudio", buffer) == 0) disableAudio = value;
 			else if (strcmp("uncachedMem", buffer) == 0) uncached_mem = value;
 			else if (strcmp("doubleBuffering", buffer) == 0) double_buffering = value;
+			else if (strcmp("disableOrientation", buffer) == 0) disable_orientation = value;
 		}
 		fclose(config);
 	}
@@ -535,6 +537,8 @@ void main_loop() {
 	int lastX[SCE_TOUCH_MAX_REPORT] = {-1, -1, -1, -1, -1, -1, -1, -1};
 	int lastY[SCE_TOUCH_MAX_REPORT] = {-1, -1, -1, -1, -1, -1, -1, -1};
 	
+	sceMotionSetAngleThreshold(45.f);
+
 	setup_ended = 1;
 	glReleaseShaderCompiler();
 	for (;;) {
@@ -567,9 +571,12 @@ void main_loop() {
 		sceMotionGetSensorState(&sensor, 1);
 		SceMotionState state;
 		sceMotionGetState(&state);
-		SceFVector3 orientation;
-		sceMotionGetBasicOrientation(&orientation);
-		is_portrait = (int)orientation.x;
+		if (!disable_orientation) {
+			SceFVector3 orientation;
+			sceMotionGetBasicOrientation(&orientation);
+			is_portrait = (int)orientation.x;
+		}
+
 		if (is_portrait) {
 			if (main_tex == 0xDEADBEEF) {
 				glGenTextures(1, &main_tex);
@@ -2401,22 +2408,23 @@ int main(int argc, char **argv)
 	debugPrintf("+--------------------------------------------+\n");
 	debugPrintf("|YoYo Loader Setup                           |\n");
 	debugPrintf("+--------------------------------------------+\n");
-	debugPrintf("|Force GLES1 Mode: %s                         |\n", forceGL1 ? "Y" : "N");
-	debugPrintf("|Skip Splashscreen at Boot: %s                |\n", forceSplashSkip ? "Y" : "N");
-	debugPrintf("|Platform Target: %s                        |\n", platforms[platTarget]);
-	debugPrintf("|Use Uncached Mem: %s                         |\n", uncached_mem ? "Y" : "N");
-	debugPrintf("|Run with Extended Mem Mode: %s               |\n", maximizeMem ? "Y" : "N");
-	debugPrintf("|Run with Extended Runner Pool: %s            |\n", _newlib_heap_size > 256 * 1024 * 1024 ? "Y" : "N");
-	debugPrintf("|Run with Mem Squeezing: %s                   |\n", squeeze_mem ? "Y" : "N");
-	debugPrintf("|Use Double Buffering: %s                     |\n", double_buffering ? "Y" : "N");
+	debugPrintf("|Force GLES1 Mode: %s                        |\n", forceGL1 ? "Y" : "N");
+	debugPrintf("|Skip Splashscreen at Boot: %s               |\n", forceSplashSkip ? "Y" : "N");
+	debugPrintf("|Platform Target: %s                         |\n", platforms[platTarget]);
+	debugPrintf("|Disable Orientation: %s                     |\n", disable_orientation ? "Y" : "N");
+	debugPrintf("|Use Uncached Mem: %s                        |\n", uncached_mem ? "Y" : "N");
+	debugPrintf("|Run with Extended Mem Mode: %s              |\n", maximizeMem ? "Y" : "N");
+	debugPrintf("|Run with Extended Runner Pool: %s           |\n", _newlib_heap_size > 256 * 1024 * 1024 ? "Y" : "N");
+	debugPrintf("|Run with Mem Squeezing: %s                  |\n", squeeze_mem ? "Y" : "N");
+	debugPrintf("|Use Double Buffering: %s                    |\n", double_buffering ? "Y" : "N");
 #ifdef HAS_VIDEO_PLAYBACK_SUPPORT
 	debugPrintf("|Enable Video Player: Y                      |\n");
 #else
 	debugPrintf("|Enable Video Player: N                      |\n");
 #endif
-	debugPrintf("|Enable Network Features: %s                  |\n", has_net ? "Y" : "N");
-	debugPrintf("|Force Bilinear Filtering: %s                 |\n", forceBilinear ? "Y" : "N");
-	debugPrintf("|Has custom C++ shared lib: %s                |\n", has_cpp_so ? "Y" : "N");
+	debugPrintf("|Enable Network Features: %s                 |\n", has_net ? "Y" : "N");
+	debugPrintf("|Force Bilinear Filtering: %s                |\n", forceBilinear ? "Y" : "N");
+	debugPrintf("|Has custom C++ shared lib: %s               |\n", has_cpp_so ? "Y" : "N");
 	debugPrintf("+--------------------------------------------+\n\n\n");
 	
 	if (has_net) {

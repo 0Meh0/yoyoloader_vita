@@ -28,7 +28,7 @@
 #define stringify(x) FUNC_TO_NAME(x)
 #define MIN(x, y) (x) < (y) ? (x) : (y)
 
-#define NUM_OPTIONS 14
+#define NUM_OPTIONS 15
 #define NUM_DB_CHUNKS 11
 #define MEM_BUFFER_SIZE (32 * 1024 * 1024)
 #define FILTER_MODES_NUM 6
@@ -120,6 +120,7 @@ struct GameSelection {
 	bool no_audio;
 	bool uncached_mem;
 	bool double_buffering;
+	bool disable_orientation;
 	CompatibilityList *status;
 	GameSelection *next;
 };
@@ -360,6 +361,7 @@ void loadConfig(GameSelection *g) {
 			else if (strcmp("disableAudio", buffer) == 0) g->no_audio = (bool)value;
 			else if (strcmp("doubleBuffering", buffer) == 0) g->double_buffering = (bool)value;
 			else if (strcmp("uncachedMem", buffer) == 0) g->uncached_mem = (bool)value;
+			else if (strcmp("disableOrientation", buffer) == 0) g->disable_orientation = (bool)value;
 		}
 		fclose(config);
 	} else {
@@ -1894,6 +1896,9 @@ int main(int argc, char *argv[]) {
 				ImGui::EndCombo();
 			}
 			ImGui::PopItemWidth();
+			ImGui::Checkbox(lang_strings[STR_ORIENTATION], &hovered->disable_orientation);
+			if (ImGui::IsItemHovered())
+				desc = lang_strings[STR_ORIENTATION_DESC];
 			ImGui::Checkbox(lang_strings[STR_UNCACHED_MEM], &hovered->uncached_mem);
 			if (ImGui::IsItemHovered())
 				desc = lang_strings[STR_UNCACHED_MEM_DESC];
@@ -2033,16 +2038,27 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			ImGui::Separator();
+			float tmp_start_y = ImGui::GetCursorPosY();
+			float half_offset = ImGui::GetContentRegionAvail().x * .6f;
 			ImGui::Text("%s: %s", lang_strings[STR_GLES1], hovered->gles1 ? lang_strings[STR_YES] : lang_strings[STR_NO]);
 			ImGui::Text("%s: %s", lang_strings[STR_PLAT_TARGET], PlatformName[hovered->plat_target]);
+			ImGui::Text("%s: %s", lang_strings[STR_ORIENTATION], hovered->disable_orientation ? lang_strings[STR_YES] : lang_strings[STR_NO]);
 			ImGui::Text("%s: %s", lang_strings[STR_UNCACHED_MEM], hovered->uncached_mem ? lang_strings[STR_YES] : lang_strings[STR_NO]);
 			ImGui::Text("%s: %s", lang_strings[STR_EXTRA_MEM], hovered->mem_extended ? lang_strings[STR_YES] : lang_strings[STR_NO]);
 			ImGui::Text("%s: %s", lang_strings[STR_EXTRA_POOL], hovered->newlib_extended ? lang_strings[STR_YES] : lang_strings[STR_NO]);
+			float tmp_end_y = ImGui::GetCursorPosY();
+			ImGui::SetCursorPosY(tmp_start_y);
+			ImGui::SetCursorPosX(half_offset);
 			ImGui::Text("%s: %s", lang_strings[STR_SQUEEZE], hovered->squeeze_mem ? lang_strings[STR_YES] : lang_strings[STR_NO]);
+			ImGui::SetCursorPosX(half_offset);
 			ImGui::Text("%s: %s", lang_strings[STR_DOUBLE_BUFFERING], hovered->double_buffering ? lang_strings[STR_YES] : lang_strings[STR_NO]);
+			ImGui::SetCursorPosX(half_offset);
 			ImGui::Text("%s: %s", lang_strings[STR_VIDEO_PLAYER], hovered->video_support ? lang_strings[STR_YES] : lang_strings[STR_NO]);
+			ImGui::SetCursorPosX(half_offset);
 			ImGui::Text("%s: %s", lang_strings[STR_NETWORK], hovered->has_net ? lang_strings[STR_YES] : lang_strings[STR_NO]);
+			ImGui::SetCursorPosX(half_offset);
 			ImGui::Text("%s: %s", lang_strings[STR_AUDIO], hovered->no_audio ? lang_strings[STR_YES] : lang_strings[STR_NO]);
+			ImGui::SetCursorPosY(tmp_end_y);
 			ImGui::Separator();
 			ImGui::Text("%s: %s", lang_strings[STR_BILINEAR], hovered->bilinear ? lang_strings[STR_YES] : lang_strings[STR_NO]);
 			ImGui::Separator();
@@ -2087,6 +2103,7 @@ int main(int argc, char *argv[]) {
 	fprintf(f, "%s=%d\n", "disableAudio", (int)hovered->no_audio);
 	fprintf(f, "%s=%d\n", "uncachedMem", (int)hovered->uncached_mem);
 	fprintf(f, "%s=%d\n", "doubleBuffering", (int)hovered->double_buffering);
+	fprintf(f, "%s=%d\n", "disableOrientation", (int)hovered->disable_orientation);
 	fclose(f);
 	
 	sprintf(config_path, "ux0:data/gms/shared/yyl.cfg");

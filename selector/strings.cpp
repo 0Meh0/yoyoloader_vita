@@ -75,5 +75,7 @@ char lang_strings[LANG_STRINGS_NUM][LANG_STR_SIZE] = {
 	"Use Double Buffering", // STR_DOUBLE_BUFFERING
 	"Use double buffering instead of triple buffering. Lowers mem usage but may cause some artifacts.", // STR_DOUBLE_BUFFERING_DESC
 	"Use Uncached Memory", // STR_UNCACHED_MEM
-	"Makes the game use mostly uncached memory internally. Reduces GPU workload and can potentially fasten memory copies but increases CPU workload." // STR_UNCACHED_MEM_DESC
+	"Makes the game use mostly uncached memory internally. Reduces GPU workload and can potentially fasten memory copies but increases CPU workload.", // STR_UNCACHED_MEM_DESC
+	"Disable Orientation", // STR_ORIENTATION
+	"Disables orientation detection." // STR_ORIENTATION_DESC
 };
