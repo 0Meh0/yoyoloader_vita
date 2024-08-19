@@ -122,6 +122,8 @@ static int music_thread(unsigned int args, void *arg) {
 		sceKernelSignalSema(critical_section, 1);
 		sceKernelDelayThread(100);
 	}
+
+	return 0;
 }
 
 void audio_player_init() {

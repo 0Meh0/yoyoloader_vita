@@ -479,7 +479,7 @@ int optimizer_thread(unsigned int argc, void *argv) {
 					"english.ini", // AM2R
 					"yugothib.ttf" // JackQuest
 				};
-				for (int i = 0; i < (sizeof(blacklist) / sizeof(blacklist[0])); i++) {
+				for (size_t i = 0; i < (sizeof(blacklist) / sizeof(blacklist[0])); i++) {
 					if (strstr(fname, blacklist[i])) {
 						zipOpenNewFileInZip(dst_file, fname, NULL, NULL, 0, NULL, 0, NULL, 0, Z_NO_COMPRESSION);
 						needs_hack = true;
@@ -570,7 +570,7 @@ void populateSoundsTable(FILE *f) {
 	fread(&total_size, 1, 4, f);
 	//printf("Total Size: %u\n", total_size);
 	while (!feof(f)) {
-		uint32_t base_off = ftell(f);
+		//uint32_t base_off = ftell(f);
 		int bytes = fread(chunk_name, 1, 4, f);
 		if (!bytes)
 			break;
@@ -580,7 +580,7 @@ void populateSoundsTable(FILE *f) {
 			uint32_t start = ftell(f);
 			fread(&entries, 1, 4, f);
 			//printf("Sound entries: %u\n", entries);
-			for (int i = 0; i < entries; i++) {
+			for (uint32_t i = 0; i < entries; i++) {
 				uint32_t fname_offset;
 				fread(&fname_offset, 1, 4, f);
 				uint32_t backup = ftell(f);
@@ -649,7 +649,7 @@ void dump_pvr_texture(const char *fname, void *buf, int w, int h) {
 	fclose(f2);
 }
 
-void externalizeSoundsAndTextures(FILE *f, int audiogroup_idx, zipFile dst_file, const char *assets_path) {
+void externalizeSoundsAndTextures(FILE *f, uint32_t audiogroup_idx, zipFile dst_file, const char *assets_path) {
 	glGenTextures(1, &ext_texture);
 	uint32_t total_size;
 	uint32_t size;
@@ -672,16 +672,16 @@ void externalizeSoundsAndTextures(FILE *f, int audiogroup_idx, zipFile dst_file,
 			//printf("There are %u sounds\n", entries);
 			uint32_t *offsets = (uint32_t *)malloc((entries + 1) * sizeof(uint32_t));
 			offsets[entries] = ftell(f) - 4 + size;
-			for (int i = 0; i < entries; i++) {
+			for (uint32_t i = 0; i < entries; i++) {
 				fread(&offsets[i], 1, 4, f);
 				offsets[i] += 4;
 			}
 			tot_idx = entries;
-			for (int i = 0; i < entries; i++) {
+			for (uint32_t i = 0; i < entries; i++) {
 				cur_idx = i;
 				uint8_t found = 0;
 				//printf("Processing sound #%d\n", i);
-				for (int j = 0; j < snd_num; j++) {
+				for (uint32_t j = 0; j < snd_num; j++) {
 					if (i == sounds[j].idx && sounds[j].group_idx == audiogroup_idx) {
 						recursive_mkdir(fname2);
 						sprintf(fname, "ux0:data/gms/shared/tmp/%d.wav", j);
@@ -728,7 +728,7 @@ void externalizeSoundsAndTextures(FILE *f, int audiogroup_idx, zipFile dst_file,
 			txtr_num = entries;
 			uint32_t *offsets = (uint32_t *)malloc((entries + 1) * sizeof(uint32_t));
 			offsets[entries] = ftell(f) - 4 + size;
-			for (int i = 0; i < entries; i++) {
+			for (uint32_t i = 0; i < entries; i++) {
 				fread(&offsets[i], 1, 4, f);
 				uint32_t backup = ftell(f);
 				fseek(f, offsets[i] + 4, SEEK_SET);
@@ -741,13 +741,12 @@ void externalizeSoundsAndTextures(FILE *f, int audiogroup_idx, zipFile dst_file,
 				fseek(f, backup, SEEK_SET);
 			}
 			tot_idx = entries;
-			for (int i = 0; i < entries; i++) {
+			for (uint32_t i = 0; i < entries; i++) {
 				cur_idx = i;
 				sprintf(fname, "%s/%d.%s", assets_path, i, has_pvr ? "pvr" : "png");
 				fseek(f, offsets[i], SEEK_SET);
 				fread(generic_mem_buffer, 1, offsets[i + 1] - offsets[i], f);
 				uint32_t *buffer32 = (uint32_t *)generic_mem_buffer;
-				uint32_t buf_size;
 				void *buf;
 				int w, h;
 				FILE *f2;
@@ -765,7 +764,6 @@ void externalizeSoundsAndTextures(FILE *f, int audiogroup_idx, zipFile dst_file,
 				default: // Png
 					if (offsets[i + 1] - offsets[i] != 76) { // Skipping already externalized textures
 						if (has_pvr) {
-							int dummy;
 							buf = stbi_load_from_memory(generic_mem_buffer, offsets[i + 1] - offsets[i], &w, &h, NULL, 4);
 							dump_pvr_texture(fname, buf, w, h);
 						} else {
@@ -789,7 +787,6 @@ void externalizeSoundsAndTextures(FILE *f, int audiogroup_idx, zipFile dst_file,
 }
 
 void patchForExternalization(FILE *in, FILE *out) {
-	uint32_t start_offset = 0;
 	uint32_t total_size;
 	uint32_t size;
 	uint32_t entries;
@@ -810,7 +807,7 @@ void patchForExternalization(FILE *in, FILE *out) {
 				fwrite(chunk_name, 1, 4, out);
 				fread(&entries, 1, 4, in);
 			} else {
-				int pre_audo_size = ftell(in) - 4;
+				uint32_t pre_audo_size = ftell(in) - 4;
 				fread(&entries, 1, 4, in);
 				fseek(in, 0, SEEK_SET);
 				uint32_t executed_bytes = 0;
@@ -825,12 +822,12 @@ void patchForExternalization(FILE *in, FILE *out) {
 			fwrite(&new_audo_size, 1, 4, out);
 			fwrite(&entries, 1, 4, out);
 			uint32_t base_offs = ftell(out) + entries * 4;
-			for (int i = 0; i < entries; i++) {
+			for (uint32_t i = 0; i < entries; i++) {
 				uint32_t entry_offs = base_offs + i * 8;
 				fwrite(&entry_offs, 1, 4, out);
 			}
 			uint64_t one_long = 1;
-			for (int i = 0; i < entries; i++) {
+			for (uint32_t i = 0; i < entries; i++) {
 				fwrite(&one_long, 1, 8, out);
 			}
 			uint32_t full_size = ftell(out) - 8;
@@ -840,7 +837,7 @@ void patchForExternalization(FILE *in, FILE *out) {
 		} else if (!strcmp(chunk_name, "TXTR")) {
 			has_txtr_chunk = 1;
 			uint32_t start = ftell(in);
-			int pre_txtr_size = ftell(in) - 4;
+			uint32_t pre_txtr_size = ftell(in) - 4;
 			fread(&entries, 1, 4, in);
 			uint32_t first_offset;
 			fread(&first_offset, 1, 4, in);
@@ -866,8 +863,8 @@ void patchForExternalization(FILE *in, FILE *out) {
 			fread(generic_mem_buffer, 1, entries * 4, in);
 			fwrite(generic_mem_buffer, 1, entries * 4, out);
 			uint32_t *buffer32 = (uint32_t *)generic_mem_buffer;
-			uint32_t has_extra;
-			for (int i = 0; i < entries; i++) {
+			uint32_t has_extra = 0;
+			for (uint32_t i = 0; i < entries; i++) {
 				has_extra = 0;
 				fseek(in, buffer32[i], SEEK_SET);
 				fread(&extra, 1, 4, in);
@@ -892,7 +889,7 @@ void patchForExternalization(FILE *in, FILE *out) {
 			img_data[0] = 0xFFBEADDE;
 			img_data[1] = 0xFF000000;
 			uint16_t padding = 0;
-			for (int i = 0; i < entries; i++) {
+			for (uint32_t i = 0; i < entries; i++) {
 				int out_len;
 				unsigned char *placeholder = stbi_write_png_to_mem((unsigned char *)img_data, 8, 2, 1, 4, &out_len);
 				fwrite(placeholder, 1, 74, out);
@@ -913,7 +910,7 @@ bool isExternalizedSound(char *fname) {
 	char *s = strstr(fname, "assets/");
 	if (s) {
 		fname = s + 7;
-		for (int j = 0; j < snd_num; j++) {
+		for (uint32_t j = 0; j < snd_num; j++) {
 			if (sounds[j].idx == null_ref && !strcmp(fname, sounds[j].fname))
 				return true;
 		}
@@ -981,7 +978,7 @@ int externalizer_thread(unsigned int argc, void *argv) {
 					"english.ini", // AM2R
 					"yugothib.ttf" // JackQuest
 				};
-				for (int i = 0; i < (sizeof(blacklist) / sizeof(blacklist[0])); i++) {
+				for (size_t i = 0; i < (sizeof(blacklist) / sizeof(blacklist[0])); i++) {
 					if (strstr(fname, blacklist[i])) {
 						zipOpenNewFileInZip(dst_file, fname, NULL, NULL, 0, NULL, 0, NULL, 0, Z_NO_COMPRESSION);
 						needs_hack = true;
@@ -1244,17 +1241,18 @@ static int animBannerThread(unsigned int args, void *arg) {
 	char *argv = (char *)arg;
 	char url[512], final_url[512] = "";
 	curl_handle = curl_easy_init();
-	sprintf(url, "https://github.com/Rinnegatamante/yoyoloader_vita_trailers/blob/main/trailers/%s.mp4?raw=true", argv);
+	snprintf(url, 512, "https://github.com/Rinnegatamante/yoyoloader_vita_trailers/blob/main/trailers/%s.mp4?raw=true", argv);
 	char *space = strstr(url, " ");
 	char *s = url;
 	while (space) {
 		space[0] = 0;
-		sprintf(final_url, "%s%s%%20", final_url, s);
+		strcat(final_url, s);
+		strcat(final_url, "%20");
 		space[0] = ' ';
 		s = space + 1;
 		space = strstr(s, " ");
 	}
-	sprintf(final_url, "%s%s", final_url, s);
+	strcat(final_url, s);
 	downloaded_bytes = 0;
 	total_bytes = 20 * 1024; /* 20 KB */
 	startDownload(final_url);
@@ -1361,7 +1359,6 @@ bool LoadPreview(GameSelection *game) {
 		return has_preview_icon;
 	old_hovered = game;
 
-	bool ret = false;
 	animated_preview_delayer = 0;
 	
 	char banner_path[256];
@@ -1435,10 +1432,10 @@ void setTranslation(int idx) {
 	{
 		while (EOF != fscanf(config, "%[^=]=%[^\n]\n", identifier, buffer))
 		{
-			for (int i = 0; i < LANG_STRINGS_NUM; i++) {
+			for (size_t i = 0; i < LANG_STRINGS_NUM; i++) {
 				if (strcmp(lang_identifiers[i], identifier) == 0) {
 					char *newline = nullptr, *p = buffer;
-					while (newline = strstr(p, "\\n")) {
+					while ((newline = strstr(p, "\\n"))) {
 						newline[0] = '\n';
 						int len = strlen(&newline[2]);
 						memmove(&newline[1], &newline[2], len);
@@ -1533,7 +1530,7 @@ int main(int argc, char *argv[]) {
 	sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
 	int ret = sceNetShowNetstat();
 	SceNetInitParam initparam;
-	if (ret == SCE_NET_ERROR_ENOTINIT) {
+	if (ret == (int)SCE_NET_ERROR_ENOTINIT) {
 		initparam.memory = malloc(141 * 1024);
 		initparam.size = 141 * 1024;
 		initparam.flags = 0;
@@ -2113,12 +2110,13 @@ int main(int argc, char *argv[]) {
 		char *s = url;
 		while (space) {
 			space[0] = 0;
-			sprintf(final_url, "%s%s%%20", final_url, s);
+			strcat(final_url, s);
+			strcat(final_url, "%20");
 			space[0] = ' ';
 			s = space + 1;
 			space = strstr(s, " ");
 		}
-		sprintf(final_url, "%s%s", final_url, s);
+		strcat(final_url, s);
 		downloaded_bytes = 0;
 		total_bytes = 20 * 1024; /* 20 KB */
 		startDownload(final_url);

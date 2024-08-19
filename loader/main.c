@@ -68,7 +68,9 @@ extern void audio_player_resume();
 extern int audio_player_is_playing();
 extern int is_gamepad_connected(int id);
 extern void send_post_request(const char *url, const char *data);
+extern void send_get_request(const char *url);
 extern void mem_profiler(void *framebuf);
+extern void patch_video_player();
 extern SceUID post_thid;
 extern SceUID get_thid;
 extern volatile int post_response_code;
@@ -257,7 +259,7 @@ int scandir_hook(const char *dir, struct android_dirent ***namelist,
 		android_current->d_type = SCE_S_ISDIR(current->d_stat.st_mode) ? 4 : 8;
 
 		if (! use_it) {	
-			use_it = (*selector) (android_current);
+			use_it = (*selector)((struct dirent*)android_current);
 			/* The selector function might have changed errno.
 			* It was zero before and it need to be again to make
 			* the latter tests work.  */
@@ -565,9 +567,9 @@ void main_loop() {
 		sceMotionGetSensorState(&sensor, 1);
 		SceMotionState state;
 		sceMotionGetState(&state);
-		float orientation[3];
-		sceMotionGetBasicOrientation(orientation);
-		is_portrait = (int)orientation[0];
+		SceFVector3 orientation;
+		sceMotionGetBasicOrientation(&orientation);
+		is_portrait = (int)orientation.x;
 		if (is_portrait) {
 			if (main_tex == 0xDEADBEEF) {
 				glGenTextures(1, &main_tex);
@@ -706,7 +708,7 @@ void (*InvalidateTextureState) ();
 
 void LoadTextureFromPNG_generic(uint32_t arg1, uint32_t arg2, uint32_t *flags, uint32_t *tex_id, uint32_t *texture) {
 	int width, height;
-	uint32_t *data = ReadPNGFile(arg1 , arg2, &width, &height, (*flags & 2) == 0);
+	uint32_t *data = ReadPNGFile((void*)arg1 , arg2, &width, &height, (*flags & 2) == 0);
 	if (data) {
 		InvalidateTextureState();
 		glGenTextures(1, tex_id);
@@ -791,7 +793,7 @@ void LoadTextureFromPNG_generic(uint32_t arg1, uint32_t arg2, uint32_t *flags, u
 #else
 					sprintf(fname, "%s%u.png", data_path, idx);
 #endif
-					ext_data = stbi_load(fname, &width, &height, NULL, 4);
+					ext_data = (uint32_t*)stbi_load(fname, &width, &height, NULL, 4);
 					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, ext_data);
 				}
 				vglFree(ext_data);
@@ -808,7 +810,7 @@ void LoadTextureFromPNG_generic(uint32_t arg1, uint32_t arg2, uint32_t *flags, u
 			texture[1] = width;
 			texture[2] = height;
 		} else {
-			texture[1] = ((width * *g_TextureScale - 1) | texture[1] & 0xFFFFE000) & 0xFC001FFF | ((height * *g_TextureScale - 1) << 13);
+			texture[1] = ((width * *g_TextureScale - 1) | ((texture[1] & 0xFFFFE000) & 0xFC001FFF)) | ((height * *g_TextureScale - 1) << 13);
 		}
 		debugPrintf("Texture size: %dx%d\n", width, height);
 	} else {
@@ -875,7 +877,7 @@ uint32_t png_get_IHDR_hook(uint32_t *png_ptr, uint32_t *info_ptr, uint32_t *widt
 			sprintf(fname, "%s%d.png", data_path, image_preload_idx);
 #endif
 			int dummy;
-			stbi_info(fname, width, height, &dummy);
+			stbi_info(fname, (int*)width, (int*)height, &dummy);
 		}
 		image_preload_idx++;
 	}
@@ -892,9 +894,9 @@ void SetWorkingDirectory() {
 }
 
 void patch_runner(void) {
-	FreePNGFile = so_symbol(&yoyoloader_mod, "_Z11FreePNGFilev");
-	ReadPNGFile = so_symbol(&yoyoloader_mod, "_Z11ReadPNGFilePviPiS0_b");
-	InvalidateTextureState = so_symbol(&yoyoloader_mod, "_Z23_InvalidateTextureStatev");
+	FreePNGFile = (void*)so_symbol(&yoyoloader_mod, "_Z11FreePNGFilev");
+	ReadPNGFile = (void*)so_symbol(&yoyoloader_mod, "_Z11ReadPNGFilePviPiS0_b");
+	InvalidateTextureState = (void*)so_symbol(&yoyoloader_mod, "_Z23_InvalidateTextureStatev");
 	
 	hook_addr(so_symbol(&yoyoloader_mod, "png_get_IHDR"), (uintptr_t)&png_get_IHDR_hook);
 	hook_addr(so_symbol(&yoyoloader_mod, "_Z19SetWorkingDirectoryv"), (uintptr_t)&SetWorkingDirectory);
@@ -912,11 +914,11 @@ void patch_runner(void) {
 		for (;;) {
 			if (*p == 0xE5900020) { // LDR R0, [R0,#0x20]
 				debugPrintf("Patching LoadTextureFromPNG to variant #4\n");
-				hook_addr(LoadTextureFromPNG, (uintptr_t)&LoadTextureFromPNG_4);
+				hook_addr((uintptr_t)LoadTextureFromPNG, (uintptr_t)&LoadTextureFromPNG_4);
 				break;
 			} else if (*p == 0xE5900024) { // LDR R0, [R0,#0x24]
 				debugPrintf("Patching LoadTextureFromPNG to variant #3\n");
-				hook_addr(LoadTextureFromPNG, (uintptr_t)&LoadTextureFromPNG_3);
+				hook_addr((uintptr_t)LoadTextureFromPNG, (uintptr_t)&LoadTextureFromPNG_3);
 				break;
 			}
 			p++;
@@ -925,11 +927,11 @@ void patch_runner(void) {
 		switch (*LoadTextureFromPNG >> 16) {
 		case 0xE92D:
 			debugPrintf("Patching LoadTextureFromPNG to variant #1\n");
-			hook_addr(LoadTextureFromPNG, (uintptr_t)&LoadTextureFromPNG_1);
+			hook_addr((uintptr_t)LoadTextureFromPNG, (uintptr_t)&LoadTextureFromPNG_1);
 			break;
 		case 0xE590:
 			debugPrintf("Patching LoadTextureFromPNG to variant #2\n");
-			hook_addr(LoadTextureFromPNG, (uintptr_t)&LoadTextureFromPNG_2);
+			hook_addr((uintptr_t)LoadTextureFromPNG, (uintptr_t)&LoadTextureFromPNG_2);
 			break;
 		default:
 			fatal_error("Error: Unrecognized LoadTextureFromPNG signature: 0x%08X.", *LoadTextureFromPNG);
@@ -962,7 +964,7 @@ void patch_runner(void) {
 
 void patch_runner_post_init(void) {
 	g_fNoAudio = (uint8_t *)so_symbol(&yoyoloader_mod, "g_fNoAudio");
-	g_pWorkingDirectory = (char *)so_symbol(&yoyoloader_mod, "g_pWorkingDirectory");
+	g_pWorkingDirectory = (char **)so_symbol(&yoyoloader_mod, "g_pWorkingDirectory");
 	g_TextureScale = (int *)so_symbol(&yoyoloader_mod, "g_TextureScale");
 	
 	int *dbg_csol = (int *)so_symbol(&yoyoloader_mod, "_dbg_csol");
@@ -1148,10 +1150,10 @@ void glShaderSourceHook(GLuint shader, GLsizei count, const GLchar **string, con
 	sha1_update(&ctx, (uint8_t *)*string, size);
 	sha1_final(&ctx, (uint8_t *)sha1);
 
-	char sha_name[64];
+	char sha_name[41];
 	snprintf(sha_name, sizeof(sha_name), "%08x%08x%08x%08x%08x", sha1[0], sha1[1], sha1[2], sha1[3], sha1[4]);
 
-	char full_gxp_path[256], glsl_path[256];
+	char full_gxp_path[256+41+4], glsl_path[256];
 	snprintf(full_gxp_path, sizeof(full_gxp_path), "%s/%s.gxp", gxp_path, sha_name);
 
 	FILE *file = fopen(full_gxp_path, "rb");
@@ -1345,8 +1347,8 @@ int _ZNSt6__ndk112__next_primeEj(void *this, int n) {
 }
 
 void __cxa_throw_hook(void *thrown_exception, void *tinfo, void (*dest)(void *)) {
-	if (tinfo == so_symbol(&yoyoloader_mod, "_ZTI14YYGMLException")) {
-		void (* YYCatchGMLException)(void *exception) = so_symbol(&yoyoloader_mod, "_Z19YYCatchGMLExceptionRK14YYGMLException");
+	if ((uintptr_t)tinfo == so_symbol(&yoyoloader_mod, "_ZTI14YYGMLException")) {
+		void (* YYCatchGMLException)(void *exception) = (void*)so_symbol(&yoyoloader_mod, "_Z19YYCatchGMLExceptionRK14YYGMLException");
 		YYCatchGMLException(thrown_exception);
 		if (dest)
 			dest(thrown_exception);
@@ -1443,7 +1445,7 @@ static so_default_dynlib default_dynlib[] = {
 	{ "_ZNSt12length_errorD1Ev", (uintptr_t)&_ZNSt12length_errorD1Ev},
 	{ "_ZNSt13runtime_errorD1Ev", (uintptr_t)&_ZNSt13runtime_errorD1Ev},
 	{ "_ZTVSt12length_error", (uintptr_t)&_ZTVSt12length_error},
-	{ "_ZNSt6__ndk112__next_primeEj", &_ZNSt6__ndk112__next_primeEj},
+	{ "_ZNSt6__ndk112__next_primeEj", (uintptr_t)&_ZNSt6__ndk112__next_primeEj},
 	{ "__aeabi_f2d", (uintptr_t)&__aeabi_f2d },
 	{ "__aeabi_l2d", (uintptr_t)&__aeabi_l2d },
 	{ "__aeabi_l2f", (uintptr_t)&__aeabi_l2f },
@@ -1960,34 +1962,34 @@ int GetStaticMethodID(void *env, void *class, const char *name, const char *sig)
 void CallStaticVoidMethodV(void *env, void *obj, int methodID, uintptr_t *args) {
 	switch (methodID) {
 	case SHOW_MESSAGE:
-		debugPrintf(args[0]);
+		debugPrintf("%s\n", (char*)args[0]);
 		break;
 	case INPUT_STRING_ASYNC:
-		init_ime_dialog(args[0], args[1]);
+		init_ime_dialog((char*)args[0], (char*)args[1]);
 		ime_index = (int)args[2];
 		ime_active = 1;
 		break;
 	case SHOW_MESSAGE_ASYNC:
-		init_msg_dialog(args[0]);
+		init_msg_dialog((char*)args[0]);
 		msg_index = (int)args[1];
 		msg_active = 1;
 		break;
 	case HTTP_POST:
 		if (has_net) {
-			send_post_request(args[0], args[1]);
+			send_post_request((char*)args[0], (char*)args[1]);
 			post_index = (int)args[2];
 			post_active = 1;
 		}
 		break;
 	case HTTP_GET:
 		if (has_net) {
-			send_get_request(args[0]);
+			send_get_request((char*)args[0]);
 			get_index = (int)args[1];
 			get_active = 1;
 		}
 		break;
 	case PLAY_MP3:
-		audio_player_play(args[0], args[1]);
+		audio_player_play((char*)args[0], args[1]);
 		break;
 	case STOP_MP3:
 		audio_player_stop();
@@ -2138,7 +2140,7 @@ void *CallStaticObjectMethodV(void *env, void *obj, int methodID, uintptr_t *arg
 			ext_func *f = (ext_func *)args;
 			if (!strcmp(f->module_name, "PickMe")) { // Used by Super Mario Maker: World Engine
 				if (!strcmp(f->method_name, "getDire1")) {
-					sprintf(r, "%s%s/", data_path, f->object_array);
+					sprintf(r, "%s%s/", data_path, (char*)f->object_array);
 					recursive_mkdir(r);
 					return f->object_array;
 				}
@@ -2248,11 +2250,11 @@ void SetDoubleArrayRegion(void *env, double *array, int start, int len, double *
 
 void SetObjectArrayElement(void *env, void *array, int index, void *val) {
 	if (array)
-		strcpy(&array[index], val);
+		strcpy((char*)array+index, val);
 }
 
 void GetByteArrayRegion(void *env, void *array, int start, int len, void *buf) {
-	sceClibMemcpy(buf, &array[start], len);
+	sceClibMemcpy(buf, (char*)array+start, len);
 }
 
 int GetIntField(void *env, void *obj, int fieldID) { return 0; }
