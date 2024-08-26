@@ -498,6 +498,14 @@ int pthread_once_fake(volatile int *once_control, void (*init_routine)(void)) {
 	return 0;
 }
 
+int pthread_atfork_fake(void (*prepare)(void), void (*parent)(void), void (*child)(void)) {
+	(void)prepare;
+	(void)parent;
+	(void)child;
+
+	return ENOSYS;
+}
+
 
 int GetCurrentThreadId(void) {
 	return sceKernelGetThreadId();
@@ -1568,6 +1576,7 @@ static so_default_dynlib default_dynlib[] = {
 	{ "asin", (uintptr_t)&asin },
 	{ "asinf", (uintptr_t)&asinf },
 	{ "asinh", (uintptr_t)&asinh },
+	{ "asprintf", (uintptr_t)&asprintf },
 	{ "atan", (uintptr_t)&atan },
 	{ "atan2", (uintptr_t)&atan2 },
 	{ "atan2f", (uintptr_t)&atan2f },
@@ -1599,6 +1608,7 @@ static so_default_dynlib default_dynlib[] = {
 	{ "dlopen", (uintptr_t)&dlopen_hook },
 	{ "dlsym", (uintptr_t)&dlsym_hook },
 	{ "exit", (uintptr_t)&exit },
+	{ "_exit", (uintptr_t)&exit },
 	{ "exp", (uintptr_t)&exp },
 	{ "expf", (uintptr_t)&expf },
 	{ "fclose", (uintptr_t)&fclose },
@@ -1697,6 +1707,8 @@ static so_default_dynlib default_dynlib[] = {
 	{ "glVertexPointer", (uintptr_t)&glVertexPointer },
 	{ "glViewport", (uintptr_t)&glViewport },
 	{ "gmtime64", (uintptr_t)&gmtime64 },
+	{ "getppid", (uintptr_t)&ret1 },
+	{ "getpgid", (uintptr_t)&ret1 },
 	{ "inet_addr", (uintptr_t)&inet_addr },
 	{ "inet_ntoa", (uintptr_t)&inet_ntoa },
 	//{ "inet_ntop", (uintptr_t)&inet_ntop },
@@ -1770,6 +1782,7 @@ static so_default_dynlib default_dynlib[] = {
 	{ "pow", (uintptr_t)&pow },
 	{ "powf", (uintptr_t)&powf },
 	{ "printf", (uintptr_t)&debugPrintf },
+	{ "pthread_atfork", (uintptr_t)&pthread_atfork_fake},
 	{ "pthread_attr_destroy", (uintptr_t)&ret0 },
 	{ "pthread_attr_init", (uintptr_t)&ret0 },
 	{ "pthread_attr_setdetachstate", (uintptr_t)&ret0 },
@@ -1778,6 +1791,7 @@ static so_default_dynlib default_dynlib[] = {
 	{ "pthread_cond_init", (uintptr_t)&pthread_cond_init_fake},
 	{ "pthread_cond_wait", (uintptr_t)&pthread_cond_wait_fake},
 	{ "pthread_create", (uintptr_t)&pthread_create_fake},
+	{ "pthread_equal", (uintptr_t)&pthread_equal},
 	{ "pthread_join", (uintptr_t)&pthread_join},
 	{ "pthread_key_create", (uintptr_t)&pthread_key_create},
 	{ "pthread_key_delete", (uintptr_t)&pthread_key_delete},
@@ -1789,6 +1803,7 @@ static so_default_dynlib default_dynlib[] = {
 	{ "pthread_mutexattr_init", (uintptr_t)&pthread_mutexattr_init},
 	{ "pthread_mutexattr_settype", (uintptr_t)&pthread_mutexattr_settype},
 	{ "pthread_once", (uintptr_t)&pthread_once_fake},
+	{ "pthread_self", (uintptr_t)&pthread_self},
 	{ "pthread_setspecific", (uintptr_t)&pthread_setspecific},
 	{ "pthread_getspecific", (uintptr_t)&pthread_getspecific},
 	{ "putc", (uintptr_t)&putc },
@@ -1803,6 +1818,7 @@ static so_default_dynlib default_dynlib[] = {
 	{ "rint", (uintptr_t)&rint },
 	{ "round", (uintptr_t)&round },
 	{ "roundf", (uintptr_t)&roundf },
+	{ "scalbn", (uintptr_t)&scalbn },
 	{ "scandir", (uintptr_t)&scandir_hook },
 	//{ "send", (uintptr_t)&send },
 	//{ "sendto", (uintptr_t)&sendto },
